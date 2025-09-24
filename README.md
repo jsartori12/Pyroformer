@@ -16,7 +16,7 @@ An experimental GPT-style language model built from scratch in PyTorch to genera
 
 2.  **Train the BPE tokenizer:**
     ```bash
-    python train_tokenizer.py
+    python bpe_vocab.py
     ```
 
 3.  **Train the generative model:**
