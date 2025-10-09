@@ -303,12 +303,12 @@ for iter in range(max_iters):
 
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
-print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+print(decode(m.generate(context, max_new_tokens=108)[0].tolist()))
 torch.save(model.state_dict(), "pyroformer_model.pt")
 # Recommendations for improvement:
 
 @torch.no_grad() # Desliga o cálculo de gradientes para inferência (economiza memória e é mais rápido)
-def generate_sequences(model, tokenizer, num_sequences=5, max_new_tokens=512, temperature=1.0, top_k=None, device='cpu'):
+def generate_sequences(model, tokenizer , block_size, num_sequences=5, max_new_tokens=512, temperature=1.0, top_k=None, device='cpu'):
     """
     Gera novas sequências de proteínas usando o modelo treinado.
 
@@ -350,7 +350,8 @@ def generate_sequences(model, tokenizer, num_sequences=5, max_new_tokens=512, te
         for i in range(max_new_tokens):
             # O modelo pode ter um `block_size` fixo para o contexto de entrada.
             # Certifique-se de que `idx` não excede `block_size` antes de passar para o modelo.
-            idx_cond = idx if idx.size(1) <= model.block_size else idx[:, -model.block_size:]
+            #idx_cond = idx if idx.size(1) <= model.block_size else idx[:, -model.block_size:]
+            idx_cond = idx if idx.size(1) <= block_size else idx[:, -block_size:]
             
             # Obtenha as previsões do modelo
             logits, _ = model(idx_cond) # O modelo espera (B, T, C), então idx_cond deve ser (1, current_length)
@@ -390,15 +391,23 @@ def generate_sequences(model, tokenizer, num_sequences=5, max_new_tokens=512, te
     model.train() # Retorna o modelo ao modo de treinamento
     return generated_sequences
 
+def decode(l, skip_special_tokens=True):
+    # O tokenizer.decode() pode recriar a string com espaços
+    decoded_text = tokenizer.decode(l, skip_special_tokens=skip_special_tokens)
+    
+    # A linha mais importante: remove todos os espaços para juntar a sequência
+    return decoded_text.replace(" ", "")
+
 NUM_GENERATIONS = 5
-MAX_SEQ_LENGTH = 200 # Limita o comprimento das sequências geradas
+MAX_SEQ_LENGTH = 50 # Limita o comprimento das sequências geradas
 TEMPERATURE = 0.8 # Um pouco de aleatoriedade, mas focado
-TOP_K_SAMPLING = 50 # Considera apenas os 50 tokens mais prováveis
+TOP_K_SAMPLING = 950 # Considera apenas os 50 tokens mais prováveis
 
 print("\n--- INICIANDO GERAÇÃO DE NOVAS PROTEÍNAS ---")
 new_proteins = generate_sequences(
     model=m, # Seu modelo treinado
     tokenizer=tokenizer,
+    block_size=block_size,
     num_sequences=NUM_GENERATIONS,
     max_new_tokens=MAX_SEQ_LENGTH,
     temperature=TEMPERATURE,
@@ -406,6 +415,9 @@ new_proteins = generate_sequences(
     device=device
 )
 
+
+
+new_proteins[0].replace(" ", "")
 print("\n--- PROTEÍNAS GERADAS ---")
 for i, protein in enumerate(new_proteins):
     print(f"Proteína {i+1}: {protein}")
